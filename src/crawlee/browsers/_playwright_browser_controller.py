@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from playwright.async_api import Page
 from typing_extensions import override
 
 from crawlee.browsers._base_browser_controller import BaseBrowserController
+from crawlee.browsers._types import BrowserType
+from crawlee.fingerprint_suite import FingerprintInjector
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -26,16 +28,25 @@ class PlaywrightBrowserController(BaseBrowserController):
     """
 
     AUTOMATION_LIBRARY = 'playwright'
+    _DEFAULT_FINGERPRINT_INJECTOR = FingerprintInjector()
 
-    def __init__(self, browser: Browser, *, max_open_pages_per_browser: int = 20) -> None:
+    def __init__(
+        self,
+        browser: Browser,
+        *,
+        max_open_pages_per_browser: int = 20,
+        fingerprint_injector: FingerprintInjector = _DEFAULT_FINGERPRINT_INJECTOR,
+    ) -> None:
         """Create a new instance.
 
         Args:
             browser: The browser instance to control.
             max_open_pages_per_browser: The maximum number of pages that can be open at the same time.
+            fingerprint_injector: The fingerprint injector to use for modifying HTTP headers.
         """
         self._browser = browser
         self._max_open_pages_per_browser = max_open_pages_per_browser
+        self._fingerprint_injector = fingerprint_injector
 
         self._pages = list[Page]()
         self._last_page_opened_at = datetime.now(timezone.utc)
@@ -70,6 +81,11 @@ class PlaywrightBrowserController(BaseBrowserController):
     def is_browser_connected(self) -> bool:
         return self._browser.is_connected()
 
+    @property
+    @override
+    def browser_type(self) -> BrowserType:
+        return cast(BrowserType, self._browser.browser_type.name)
+
     @override
     async def new_page(
         self,
@@ -90,6 +106,19 @@ class PlaywrightBrowserController(BaseBrowserController):
             raise ValueError('Cannot open more pages in this browser.')
 
         page = await self._browser.new_page(**page_options)
+
+        # Modify HTTP headers to look like a real browser.
+        await page.route(
+            url='**/*',
+            handler=lambda route, request: self._fingerprint_injector.inject_fingerprint(
+                route=route,
+                request=request,
+                browser_type=self.browser_type,
+            ),
+        )
+
+        # TODO: maybe?
+        # await page.set_extra_http_headers()
 
         # Handle page close event
         page.on(event='close', f=self._on_page_close)

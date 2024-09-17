@@ -1,1 +1,2 @@
+from ._fingerprint_injector import FingerprintInjector
 from ._header_generator import HeaderGenerator

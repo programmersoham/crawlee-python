@@ -12,17 +12,28 @@ if TYPE_CHECKING:
 class HeaderGenerator:
     """Generates common headers for HTTP requests."""
 
-    def get_common_headers(self) -> Mapping[str, str]:
+    def get_common_headers(
+        self,
+        *,
+        include_random_user_agent: bool = True,
+    ) -> Mapping[str, str]:
         """Get common headers for HTTP requests.
 
         We do not modify the 'Accept-Encoding', 'Connection' and other headers. They should be included and handled
         by the HTTP client.
 
+        Args:
+            include_random_user_agent: Whether to include a random User-Agent header.
+
         Returns:
             Dictionary containing common headers.
         """
-        return {
+        headers = {
             'Accept': COMMON_ACCEPT,
             'Accept-Language': COMMON_ACCEPT_LANGUAGE,
-            'User-Agent': random.choice(USER_AGENT_POOL),
         }
+
+        if include_random_user_agent:
+            headers['User-Agent'] = random.choice(USER_AGENT_POOL)
+
+        return headers
