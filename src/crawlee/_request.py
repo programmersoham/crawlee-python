@@ -119,19 +119,18 @@ class BaseRequestData(BaseModel):
     method: HttpMethod = 'GET'
     """HTTP request method."""
 
-    headers: Annotated[HttpHeaders, Field(default_factory=HttpHeaders())] = HttpHeaders()
+    headers: Annotated[HttpHeaders, Field(default_factory=HttpHeaders)] = HttpHeaders()
     """HTTP request headers."""
 
     query_params: Annotated[HttpQueryParams, Field(alias='queryParams', default_factory=dict)] = {}
     """URL query parameters."""
 
-    payload: HttpPayload | None = None
-
-    data: Annotated[dict[str, Any], Field(default_factory=dict)] = {}
+    payload: Annotated[HttpPayload, Field(default_factory=dict)] = {}
+    """HTTP request payload."""
 
     user_data: Annotated[
         dict[str, JsonValue],  # Internally, the model contains `UserData`, this is just for convenience
-        Field(alias='userData', default_factory=lambda: UserData()),
+        Field(alias='userData', default_factory=UserData),
         PlainValidator(user_data_adapter.validate_python),
         PlainSerializer(
             lambda instance: user_data_adapter.dump_python(
@@ -161,6 +160,8 @@ class BaseRequestData(BaseModel):
         url: str,
         *,
         method: HttpMethod = 'GET',
+        headers: HttpHeaders | None = None,
+        query_params: HttpQueryParams | None = None,
         payload: HttpPayload | None = None,
         label: str | None = None,
         unique_key: str | None = None,
@@ -185,6 +186,8 @@ class BaseRequestData(BaseModel):
             unique_key=unique_key,
             id=id,
             method=method,
+            headers=headers,
+            query_params=query_params,
             payload=payload,
             **kwargs,
         )
@@ -235,6 +238,8 @@ class Request(BaseRequestData):
         url: str,
         *,
         method: HttpMethod = 'GET',
+        headers: HttpHeaders | None = None,
+        query_params: HttpQueryParams | None = None,
         payload: HttpPayload | None = None,
         label: str | None = None,
         unique_key: str | None = None,
@@ -253,6 +258,8 @@ class Request(BaseRequestData):
         Args:
             url: The URL of the request.
             method: The HTTP method of the request.
+            headers: The HTTP headers of the request.
+            query_params: The query parameters of the URL.
             payload: The data to be sent as the request body. Typically used with 'POST' or 'PUT' requests.
             label: A custom label to differentiate between request types. This is stored in `user_data`, and it is
                 used for request routing (different requests go to different handlers).
@@ -281,6 +288,8 @@ class Request(BaseRequestData):
             unique_key=unique_key,
             id=id,
             method=method,
+            headers=headers,
+            query_params=query_params,
             payload=payload,
             **kwargs,
         )
