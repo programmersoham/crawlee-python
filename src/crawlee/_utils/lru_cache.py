@@ -1,51 +1,60 @@
-from __future__ import annotations
-
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from typing import Generic, ItemsView, Iterator, TypeVar, ValuesView
-from typing import OrderedDict as OrderedDictType
 
 T = TypeVar('T')
 
-
 class LRUCache(MutableMapping[str, T], Generic[T]):
-    """Attempt to reimplement LRUCache from `@apify/datastructures` using `OrderedDict`."""
-
+    """A more Pythonic and efficient implementation of LRU Cache using `OrderedDict`."""
+    
     def __init__(self, max_length: int) -> None:
-        """Create a LRUCache with a specific max_length."""
-        self._cache: OrderedDictType[str, T] = OrderedDict()
+        """Initialize the LRUCache with a specific max_length."""
+        self._cache: OrderedDict[str, T] = OrderedDict()
         self._max_length = max_length
 
     def __getitem__(self, key: str) -> T:
-        """Get an item from the cache. Move it to the end if present."""
+        """Retrieve an item from the cache and move it to the end if found."""
+        if key not in self._cache:
+            raise KeyError(f"Key {key} not found in the cache")
         val = self._cache[key]
-        # No 'key in cache' condition since the previous line would raise KeyError
-        self._cache.move_to_end(key)
+        self._cache.move_to_end(key)  # Move accessed item to the end (most recently used)
         return val
 
     def __setitem__(self, key: str, value: T) -> None:
-        """Add an item to the cache. Remove least used item if max_length exceeded."""
-        # Sadly TS impl returns bool indicating whether the key was already present or not
+        """Insert or update an item in the cache. Evict the least recently used item if necessary."""
+        if key in self._cache:
+            self._cache.move_to_end(key)
         self._cache[key] = value
         if len(self._cache) > self._max_length:
-            self._cache.popitem(last=False)
+            self._cache.popitem(last=False)  # Remove the oldest item (least recently used)
 
     def __delitem__(self, key: str) -> None:
-        """Remove an item from the cache."""
+        """Delete an item from the cache."""
         del self._cache[key]
 
     def __iter__(self) -> Iterator[str]:
-        """Iterate over the keys of the cache in order of insertion."""
-        return self._cache.__iter__()
+        """Iterate over the cache keys."""
+        return iter(self._cache)
 
     def __len__(self) -> int:
-        """Get the number of items in the cache."""
+        """Return the number of items in the cache."""
         return len(self._cache)
 
-    def values(self) -> ValuesView[T]:  # Needed so we don't mutate the cache by __getitem__
-        """Iterate over the values in the cache in order of insertion."""
+    def get(self, key: str, default: T = None) -> T | None:
+        """Safely get an item from the cache without raising KeyError."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def values(self) -> ValuesView[T]:
+        """Return an iterator over the values in the cache."""
         return self._cache.values()
 
-    def items(self) -> ItemsView[str, T]:  # Needed so we don't mutate the cache by __getitem__
-        """Iterate over the pairs of (key, value) in the cache in order of insertion."""
+    def items(self) -> ItemsView[str, T]:
+        """Return an iterator over the (key, value) pairs in the cache."""
         return self._cache.items()
+
+    def __repr__(self) -> str:
+        """Return a string representation of the cache."""
+        return f"LRUCache(max_length={self._max_length}, items={list(self._cache.items())})"
